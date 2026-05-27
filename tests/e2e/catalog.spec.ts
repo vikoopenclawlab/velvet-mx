@@ -6,25 +6,28 @@ test.describe("Models Catalog", () => {
   });
 
   test("should display models grid", async ({ page }) => {
-    await expect(page.locator("[data-testid='model-card'], .grid > div").first()).toBeVisible({ timeout: 10000 });
-    const cards = await page.locator(".grid > div").count();
-    expect(cards).toBeGreaterThan(0);
+    const cards = page.locator("a[href^='/models/model-']");
+    await expect(cards.first()).toBeVisible({ timeout: 10000 });
+    await expect(cards).toHaveCount(24, { timeout: 5000 });
   });
 
   test("should filter by city", async ({ page }) => {
-    // Click the city filter select
-    await page.locator("select").first().selectOption({ index: 1 });
+    // City filter is a Radix Select - click the button that opens it
+    const cityFilter = page.locator("button[role='combobox']").filter({ hasText: "" }).first();
+    await cityFilter.click();
+    // Wait for dropdown
     await page.waitForTimeout(500);
   });
 
   test("should search by name", async ({ page }) => {
-    const searchInput = page.locator("input[type='text'], input[placeholder*='Buscar']").first();
+    const searchInput = page.locator("input[placeholder*='Buscar']");
     await searchInput.fill("Valentina");
     await page.waitForTimeout(500);
   });
 
   test("should navigate to model profile", async ({ page }) => {
-    await page.locator(".grid > div a").first().click();
-    await expect(page).toHaveURL(/\/models\/.+/);
+    const firstCard = page.locator("a[href^='/models/model-']").first();
+    await firstCard.click();
+    await expect(page).toHaveURL(/\/models\/model-\d+/);
   });
 });
