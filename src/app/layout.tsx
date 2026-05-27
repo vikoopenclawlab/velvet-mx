@@ -3,6 +3,7 @@ import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
+import { CookieConsent } from "@/components/cookie-consent";
 import { APP_CONSTANTS } from "@/lib/constants";
 
 const inter = Inter({
@@ -48,6 +49,7 @@ export default function RootLayout({
         <Header />
         <main className="min-h-screen pt-20">{children}</main>
         <Footer />
+        <CookieConsent />
       </body>
     </html>
   );
