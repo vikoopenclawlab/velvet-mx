@@ -92,7 +92,7 @@ export default function ModelProfilePage({ params }: PageProps) {
             {/* Reviews */}
             <div>
               <h2 className="font-display text-xl font-semibold text-white mb-6">Reseñas</h2>
-              <ModelReviews reviews={model.reviews ?? []} />
+              <ModelReviews reviews={model.reviews ?? []} modelId={model.id} modelName={model.name} />
             </div>
           </div>
 
