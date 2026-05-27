@@ -5,6 +5,7 @@ const nextConfig = {
       { protocol: "https", hostname: "fastly.picsum.photos" },
     ],
   },
+  output: "standalone",
 };
 
 export default nextConfig;

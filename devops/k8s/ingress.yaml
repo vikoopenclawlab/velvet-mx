@@ -5,38 +5,19 @@ metadata:
   namespace: velvet-mx
   annotations:
     kubernetes.io/ingress.class: traefik
-    traefik.ingress.kubernetes.io/router.entrypoints: web
-    traefik.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
+  tls:
+    - hosts:
+        - velvetmx.staging.vikoapps.com
+      secretName: velvet-mx-tls
   rules:
-    - host: velvetmx.com
+    - host: velvetmx.staging.vikoapps.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
-              service:
-                name: velvet-mx-app
-                port:
-                  number: 80
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: velvet-mx-ingress-www
-  namespace: velvet-mx
-  annotations:
-    kubernetes.io/ingress.class: traefik
-    traefik.ingress.kubernetes.io/router.entrypoints: web
-    traefik.ingress.kubernetes.io/redirect-regex.regex: "^/(.*)"
-    traefik.ingress.kubernetes.io/redirect-regex.replacement: "https://www.velvetmx.com/$1"
-    traefik.ingress.kubernetes.io/redirect-regex.permanent: "true"
-spec:
-  rules:
-    - host: velvetmx.com
-      http:
-        paths:
-          - backend:
               service:
                 name: velvet-mx-app
                 port:

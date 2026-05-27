@@ -4,18 +4,7 @@ metadata:
   name: velvet-mx-config
   namespace: velvet-mx
 data:
-  NEXTAUTH_URL: "https://velvetmx.com"
-  REDIS_URL: "redis://velvet-mx-redis:6379"
+  REDIS_URL: "redis://redis.velvet-mx.svc.cluster.local:6379"
+  NEXTAUTH_URL: "https://velvetmx.staging.vikoapps.com"
   NODE_ENV: "production"
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: velvet-mx-pvc
-  namespace: velvet-mx
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 5Gi
+  NEXT_PUBLIC_APP_URL: "https://velvetmx.staging.vikoapps.com"
