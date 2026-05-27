@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: velvet-mx
+  labels:
+    app.kubernetes.io/name: velvetmx
+    app.kubernetes.io/managed-by: kubectl
