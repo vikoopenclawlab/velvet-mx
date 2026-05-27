@@ -38,6 +38,13 @@ enum PaymentStatus {
   FAILED
 }
 
+enum KycStatus {
+  NOT_SUBMITTED
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
 // ================== MODELS ==================
 
 model User {
@@ -162,6 +169,15 @@ model Model {
   // Verification
   verified    Boolean   @default(false)
   verifiedAt  DateTime?
+  
+  // KYC - INE verification (legally required in Mexico)
+  kycStatus        KycStatus  @default(NOT_SUBMITTED)
+  kycSubmittedAt   DateTime?
+  kycVerifiedAt    DateTime?
+  kycRejectedReason String?
+  ineFrontUrl     String?    // INE front photo URL
+  ineBackUrl      String?    // INE back photo URL
+  selfieUrl       String?    // Selfie holding INE
   
   // Availability
   availableHours String? // JSON: {"monday": {"start": "09:00", "end": "21:00"}, ...}
