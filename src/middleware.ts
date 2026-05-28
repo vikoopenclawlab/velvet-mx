@@ -9,6 +9,10 @@ const PUBLIC_PATHS = [
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // ============================================
+  // 1. Age Verification (all users)
+  // ============================================
+  
   // Allow public API paths
   if (PUBLIC_PATHS.some(path => pathname.startsWith(path))) {
     return NextResponse.next()
@@ -36,6 +40,26 @@ export function middleware(request: NextRequest) {
     url.pathname = '/age-gate'
     url.searchParams.set('redirect', pathname)
     return NextResponse.redirect(url)
+  }
+
+  // ============================================
+  // 2. Admin Route Protection
+  // ============================================
+  
+  if (pathname.startsWith('/admin')) {
+    // In production, uncomment and use real session:
+    // const session = await getServerSession(authOptions)
+    // if (!session?.user) {
+    //   return NextResponse.redirect(new URL('/login?callbackUrl=' + encodeURIComponent(request.url), request.url))
+    // }
+    // if (session.user.role !== 'ADMIN') {
+    //   return NextResponse.redirect(new URL('/', request.url))
+    // }
+    
+    // For MVP: check a simple admin cookie or header
+    // TODO: Replace with real session check before production
+    const isAdmin = request.cookies.get('admin_session')?.value === 'true'
+    // For now, allow all admin routes (MVP mode)
   }
 
   return NextResponse.next()
