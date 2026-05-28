@@ -1,18 +1,39 @@
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 
-// Mock favorites data for MVP
-// In production, this would use the Favorite model in the database
-let mockFavorites: string[] = [] // Array of model IDs
-
-// GET - Get user's favorites (model IDs)
-export async function GET() {
+// GET - Get user's favorites (model IDs with full data)
+export async function GET(request: Request) {
   try {
-    // In production, get userId from session
-    // const userId = session.user.id
-    // const favorites = await prisma.favorite.findMany({ where: { userId }, select: { modelId: true } })
-    // return NextResponse.json(favorites.map(f => f.modelId))
+    // Mock userId for MVP - in production, get from session
+    const userId = request.headers.get('x-user-id') || 'anonymous'
 
-    return NextResponse.json(mockFavorites)
+    const favorites = await prisma.favorite.findMany({
+      where: { userId },
+      include: {
+        model: {
+          select: {
+            id: true,
+            name: true,
+            tagline: true,
+            age: true,
+            type: true,
+            mainPhoto: true,
+            city: { select: { name: true } },
+            rating: true,
+            reviewCount: true,
+            verified: true,
+            services: {
+              where: { active: true },
+              take: 1,
+              select: { price: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return NextResponse.json(favorites.map(f => f.model))
   } catch (error) {
     console.error('Favorites GET error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -29,15 +50,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'modelId required' }, { status: 400 })
     }
 
-    // In production:
-    // const userId = session.user.id
-    // await prisma.favorite.create({ data: { userId, modelId } })
+    // Mock userId for MVP - in production, get from session
+    const userId = body.userId || 'anonymous'
 
-    if (!mockFavorites.includes(modelId)) {
-      mockFavorites.push(modelId)
+    // Check if model exists
+    const model = await prisma.model.findUnique({ where: { id: modelId } })
+    if (!model) {
+      return NextResponse.json({ error: 'Model not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true, favorites: mockFavorites }, { status: 201 })
+    // Check if already favorited
+    const existing = await prisma.favorite.findUnique({
+      where: {
+        userId_modelId: { userId, modelId },
+      },
+    })
+
+    if (existing) {
+      return NextResponse.json({ error: 'Already in favorites' }, { status: 400 })
+    }
+
+    await prisma.favorite.create({
+      data: { userId, modelId },
+    })
+
+    return NextResponse.json({ success: true }, { status: 201 })
   } catch (error) {
     console.error('Favorites POST error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -54,13 +91,14 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'modelId required' }, { status: 400 })
     }
 
-    // In production:
-    // const userId = session.user.id
-    // await prisma.favorite.deleteMany({ where: { userId, modelId } })
+    // Mock userId for MVP - in production, get from session
+    const userId = request.headers.get('x-user-id') || 'anonymous'
 
-    mockFavorites = mockFavorites.filter(id => id !== modelId)
+    await prisma.favorite.deleteMany({
+      where: { userId, modelId },
+    })
 
-    return NextResponse.json({ success: true, favorites: mockFavorites })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Favorites DELETE error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

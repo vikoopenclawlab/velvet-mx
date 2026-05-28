@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server'
-
-// KYC API - handles Know Your Customer verification for models
-// Note: Requires database migration to add KYC fields to Model model
+import { prisma } from '@/lib/prisma'
 
 // GET - Get KYC status for a model
 export async function GET(request: Request) {
@@ -13,14 +11,25 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Model ID required' }, { status: 400 })
     }
 
-    // Mock response for MVP - replace with actual DB query after migration
-    return NextResponse.json({
-      kycStatus: 'NOT_SUBMITTED',
-      kycSubmittedAt: null,
-      kycVerifiedAt: null,
-      kycRejectedReason: null,
-      verified: false,
+    const model = await prisma.model.findUnique({
+      where: { id: modelId },
+      select: {
+        kycStatus: true,
+        kycSubmittedAt: true,
+        kycVerifiedAt: true,
+        kycRejectedReason: true,
+        verified: true,
+        ineFrontUrl: true,
+        ineBackUrl: true,
+        selfieUrl: true,
+      }
     })
+
+    if (!model) {
+      return NextResponse.json({ error: 'Model not found' }, { status: 404 })
+    }
+
+    return NextResponse.json(model)
   } catch (error) {
     console.error('KYC GET error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -40,23 +49,36 @@ export async function POST(request: Request) {
       )
     }
 
-    // Mock response for MVP - replace with actual DB update after migration
-    // In production:
-    // const updated = await prisma.model.update({
-    //   where: { id: modelId },
-    //   data: {
-    //     kycStatus: 'SUBMITTED',
-    //     kycSubmittedAt: new Date(),
-    //     ineFrontUrl,
-    //     ineBackUrl,
-    //     selfieUrl,
-    //   },
-    // })
+    const model = await prisma.model.findUnique({
+      where: { id: modelId },
+    })
+
+    if (!model) {
+      return NextResponse.json({ error: 'Model not found' }, { status: 404 })
+    }
+
+    if (model.kycStatus === 'SUBMITTED' || model.kycStatus === 'APPROVED') {
+      return NextResponse.json(
+        { error: 'KYC already submitted or approved' },
+        { status: 400 }
+      )
+    }
+
+    const updated = await prisma.model.update({
+      where: { id: modelId },
+      data: {
+        kycStatus: 'SUBMITTED',
+        kycSubmittedAt: new Date(),
+        ineFrontUrl,
+        ineBackUrl,
+        selfieUrl,
+      },
+    })
 
     return NextResponse.json({
       success: true,
-      status: 'SUBMITTED',
-      submittedAt: new Date().toISOString(),
+      status: updated.kycStatus,
+      submittedAt: updated.kycSubmittedAt,
     })
   } catch (error) {
     console.error('KYC POST error:', error)
@@ -84,24 +106,48 @@ export async function PATCH(request: Request) {
       )
     }
 
-    // Mock response for MVP - replace with actual DB update after migration
-    // In production:
-    // if (action === 'approve') {
-    //   await prisma.model.update({
-    //     where: { id: modelId },
-    //     data: { kycStatus: 'APPROVED', verified: true, kycVerifiedAt: new Date() },
-    //   })
-    // } else {
-    //   await prisma.model.update({
-    //     where: { id: modelId },
-    //     data: { kycStatus: 'REJECTED', kycRejectedReason: rejectedReason },
-    //   })
-    // }
+    const model = await prisma.model.findUnique({
+      where: { id: modelId },
+    })
+
+    if (!model) {
+      return NextResponse.json({ error: 'Model not found' }, { status: 404 })
+    }
+
+    if (model.kycStatus !== 'SUBMITTED') {
+      return NextResponse.json(
+        { error: 'KYC is not in SUBMITTED status' },
+        { status: 400 }
+      )
+    }
+
+    let updateData: any = {}
+
+    if (action === 'approve') {
+      updateData = {
+        kycStatus: 'APPROVED',
+        kycVerifiedAt: new Date(),
+        verified: true,
+        verifiedAt: new Date(),
+        kycRejectedReason: null,
+      }
+    } else {
+      updateData = {
+        kycStatus: 'REJECTED',
+        kycRejectedReason: rejectedReason || 'Documentos rechazados',
+        verified: false,
+      }
+    }
+
+    const updated = await prisma.model.update({
+      where: { id: modelId },
+      data: updateData,
+    })
 
     return NextResponse.json({
       success: true,
-      status: action === 'approve' ? 'APPROVED' : 'REJECTED',
-      verified: action === 'approve',
+      status: updated.kycStatus,
+      verified: updated.verified,
     })
   } catch (error) {
     console.error('KYC PATCH error:', error)

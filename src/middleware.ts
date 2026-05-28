@@ -6,7 +6,26 @@ const PUBLIC_PATHS = [
   '/api/contact',
 ]
 
-export function middleware(request: NextRequest) {
+// Decode JWT payload from next-auth session token (no verification in Edge runtime)
+// For production, use jose with proper secret verification in Node.js runtime routes
+function decodeJWT(token: string): any | null {
+  try {
+    // JWT format: header.payload.signature
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    // Decode base64url payload
+    const payload = parts[1]
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+    const padded = payload + '='.repeat((4 - (payload.length % 4)) % 4)
+    const decoded = Buffer.from(padded, 'base64').toString('utf-8')
+    return JSON.parse(decoded)
+  } catch {
+    return null
+  }
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // ============================================
@@ -43,23 +62,34 @@ export function middleware(request: NextRequest) {
   }
 
   // ============================================
-  // 2. Admin Route Protection
+  // 2. Admin Route Protection (AUTH REQUIRED)
   // ============================================
   
   if (pathname.startsWith('/admin')) {
-    // In production, uncomment and use real session:
-    // const session = await getServerSession(authOptions)
-    // if (!session?.user) {
-    //   return NextResponse.redirect(new URL('/login?callbackUrl=' + encodeURIComponent(request.url), request.url))
-    // }
-    // if (session.user.role !== 'ADMIN') {
-    //   return NextResponse.redirect(new URL('/', request.url))
-    // }
-    
-    // For MVP: check a simple admin cookie or header
-    // TODO: Replace with real session check before production
-    const isAdmin = request.cookies.get('admin_session')?.value === 'true'
-    // For now, allow all admin routes (MVP mode)
+    const sessionToken = request.cookies.get('next-auth.session-token')?.value
+      || request.cookies.get('__Secure-next-auth.session-token')?.value
+
+    if (!sessionToken) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('callbackUrl', pathname)
+      return NextResponse.redirect(url)
+    }
+
+    const payload = decodeJWT(sessionToken)
+
+    if (!payload) {
+      const response = NextResponse.redirect(new URL('/login?error=SessionExpired', request.url))
+      response.cookies.delete('next-auth.session-token')
+      response.cookies.delete('__Secure-next-auth.session-token')
+      return response
+    }
+
+    // Check role is ADMIN
+    const role = payload.role || (payload as any)?.user?.role
+    if (role !== 'ADMIN') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
   }
 
   return NextResponse.next()
@@ -67,12 +97,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)',
   ],
 }
