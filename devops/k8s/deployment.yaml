@@ -55,6 +55,21 @@ spec:
                 secretKeyRef:
                   name: velvet-mx-secrets
                   key: STRIPE_SECRET_KEY
+            - name: CLOUDINARY_CLOUD_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: velvet-mx-config
+                  key: CLOUDINARY_CLOUD_NAME
+            - name: CLOUDINARY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: velvet-mx-secrets
+                  key: CLOUDINARY_API_KEY
+            - name: CLOUDINARY_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: velvet-mx-secrets
+                  key: CLOUDINARY_API_SECRET
           livenessProbe:
             httpGet:
               path: /
