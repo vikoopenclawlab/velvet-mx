@@ -1,133 +1,115 @@
-# Velvet MX — Estatus del Proyecto
+# Velvet MX — Status
 
-**Última actualización:** 2026-05-27  
-**Repo:** https://github.com/vikoopenclawlab/velvet-mx
+> Última actualización: 2026-05-28
+
+## ✅ MVP Completado
+
+Todas las features críticas del MVP están implementadas, build Passing y deployadas en producción.
+
+### Features completadas
+
+| Feature | Ubicación | Notas |
+|---------|-----------|-------|
+| Age verification gate | `/age-gate`, middleware | Cookie 1 año |
+| Terms of Use | `/terms` | 10 secciones, México |
+| Privacy Policy | `/privacy` | 11 secciones, GDPR-like |
+| Cookie consent | `/layout.tsx` | Banner con aceptar/rechazar |
+| Payment placeholder | `/payment` | Stub — gateway pendiente |
+| KYC system | `/model-dashboard/kyc`, `/admin/kyc`, `/api/kyc` | INE + selfie, Prisma |
+| Reviews | `/api/reviews`, componente en modelo | DB conectada |
+| Favorites | `/api/favorites` | DB conectada |
+| Gift cards | `/gift-cards`, `/api/gift-cards` | Create/check/redeem |
+| Chat real-time | `/chat/[modelId]`, `/api/chat` | SSE + REST |
+| Email transactional | `/api/email` | Nodemailer, 4 templates |
+| Admin auth | `middleware.ts` | JWT decode, protected routes |
+| Image upload | `/api/upload/image`, `Cloudinary` | Stub si no hay creds |
+| Prisma migrations | 3 migrations aplicadas | init, kyc, message |
+
+### URLs en producción
+
+| Servicio | URL |
+|----------|-----|
+| App (tunnel temporal) | https://sum-composer-based-familiar.trycloudflare.com |
+| Age gate | https://sum-composer-based-familiar.trycloudflare.com/age-gate |
+| Gift cards | https://sum-composer-based-familiar.trycloudflare.com/gift-cards |
+| Chat | https://sum-composer-based-familiar.trycloudflare.com/chat/model-001 |
+
+### Infra en k8s
+
+```
+Namespace: velvet-mx
+├── cloudflared-tunnel    (trycloudflare.com - TEMPORAL)
+├── postgres-6cff4c9c7f  (PostgreSQL 16-alpine)
+├── redis-545b79c5cf     (Redis 7-alpine)
+└── velvet-mx-app-*       (Next.js, 2 replicas)
+```
 
 ---
 
-## ✅ Estado Actual
+## ⏸️ Pendientes — Requieren Acción del Owner
 
-| Componente | Status | Detalle |
-|------------|--------|---------|
-| **Build** | ✅ Listo | 31 páginas, 0 errores |
-| **Unit Tests** | ✅ 11/11 | vitest passing |
-| **E2E Tests** | ✅ 15/15 | Playwright passing |
-| **Docker local** | ✅ Corriendo | PostgreSQL 5432, Redis 6379 |
-| **GitHub repo** | ✅ 4 commits | main branch |
-| **CI/CD workflows** | ✅ Preparados | ci.yml, deploy-staging.yml, deploy-production.yml |
+### 1. Payment Gateway (Conekta/Kushki)
 
----
+**Por qué está pendiente:**
+Stripe no aprueba plataformas de acompañantismo/adultos en México. Es política de uso prohibido, no pricing.
 
-## 📋 Pendiente: Secrets GitHub
+**Qué se necesita:**
+- RFC con homoclave o acta constitutiva
+- Cuenta bancaria mexicana (CLABE)
+- Contrato con gateway (Conekta recomendada)
+- 5-10 días hábiles de aprobación
 
-El CI/CD está listo pero requiere secrets para funcionar. Ver `docs/github-secrets-guide.md`.
+**Cómo activarlo cuando tengas las credenciales:**
 
-### Secrets mínimos para activar CI:
-
+1. Crear cuenta en https://conekta.com (o Kushki/OpenPay)
+2. Obtener: `CONEKTA_PUBLIC_KEY`, `CONEKTA_PRIVATE_KEY`
+3. Configurar en k8s:
 ```bash
-# Docker
-gh secret set DOCKER_USERNAME --body "vikoopenclawlab"
-gh secret set DOCKER_TOKEN --body "TU_TOKEN"
-
-# Database
-gh secret set STAGING_DATABASE_URL --body "postgresql://..."
-gh secret set PROD_DATABASE_URL --body "postgresql://..."
-
-# Kubernetes
-KUBECONFIG_B64=$(cat ~/.kube/config | base64 | tr -d '\n')
-gh secret set KUBECONFIG_STAGING --body "$KUBECONFIG_B64"
+kubectl patch secret velvet-mx-secrets -n velvet-mx --type merge -p \
+  '{"stringData":{"CONEKTA_PUBLIC_KEY":"pk_live_xxx","CONEKTA_PRIVATE_KEY":"sk_live_xxx"}}'
 ```
+4. Implementar `src/lib/conekta.ts` (SDK wrapper ya preparado en stubs)
+5. Cambiar `/payment/page.tsx` de mock → Conekta Checkout
 
-### Verificar secrets:
+**Código pendiente:**
+- `src/lib/conekta.ts` — wrapper del SDK
+- `src/app/api/checkout/route.ts` — crear sesión de pago
+- `src/app/api/webhooks/conekta/route.ts` — confirmar pagos
+
+---
+
+### 2. Named Tunnel Cloudflare
+
+**Por qué está pendiente:**
+El tunnel actual (`trycloudflare.com`) es temporal — cambia si el pod se reinicia. Necesita dominio propio para apuntar DNS.
+
+**Qué se necesita:**
+- Cuenta Cloudflare (gratis)
+- Dominio propio (ej: `velvetmx.com`, ~$10-15 USD/año)
+- 15 minutos de configuración
+
+**Cómo activarlo:**
+
+1. Registrar dominio (namecheap, godaddy, etc.)
+2. Crear tunnel en Cloudflare:
 ```bash
-gh secret list
+cloudflared tunnel create velvet-mx-prod
+cloudflared tunnel credentials <tunnel-id>
 ```
-
----
-
-## 🔄 Flujo de Deploy
-
-```
-push a main
-    ↓
-CI Pipeline (test → lint → build → e2e)
-    ↓
-Deploy to Production (manual approval)
-    ↓
-Docker image → Container registry → k8s
-
-push a develop
-    ↓
-CI Pipeline (test → lint → build)
-    ↓
-Deploy to Staging (automatic)
-```
-
----
-
-## 🏗️ Infraestructura
-
-### Kubernetes (k3s)
-- **Cluster staging:** Necesita configurarse
-- ** manifests:** Listos en `devops/k8s/`
-
-### Docker
-- **Registry:** 192.168.64.1:5100 (local)
-- **Imágenes:** velvetmx/velvet-mx:staging, velvetmx/velvet-mx:latest
-
-### Base de datos
-- **Local:** PostgreSQL 16, seeded con 24 modelos
-- **Production:** Necesita PostgreSQL (Neon/Supabase/VPS)
-
----
-
-## 📁 Estructura
-
-```
-velvet-mx/
-├── src/app/          # 24 páginas Next.js
-├── src/components/   # UI, layout, models, booking
-├── src/lib/          # Prisma, auth, stripe, utils, types
-├── prisma/           # Schema + seed
-├── tests/            # Unit (11) + E2E (15)
-├── devops/
-│   ├── docker/       # Dockerfile, docker-compose
-│   ├── github/       # CI/CD workflows
-│   └── k8s/          # K8s manifests
-└── docs/
-    └── github-secrets-guide.md
-```
-
----
-
-## 🔑 Acceso Local
-
+3. Guardar credentials como Secret en k8s:
 ```bash
-# Admin
-admin@velvetmx.com / password
-
-# Dev server
-npm run dev  # → localhost:3000
-
-# Prisma Studio
-npm run db:studio
+kubectl create secret -n velvet-mx generic cloudflared-creds \
+  --from-file=credentials.json=/path/to/credentials.json
 ```
+4. Actualizar `devops/k8s/cloudflared.yaml` con el tunnel ID y credentials path
+5. Configurar DNS en Cloudflare dashboard
+
+**Resultado:** URL fija tipo `https://velvetmx.com` que no cambia nunca.
 
 ---
 
-## 📦 Variables de Entorno (.env)
+## 📁 Documentación
 
-Ver `.env.example` para todas las variables necesarias.
-
-**Importante:** No exponer `STRIPE_SECRET_KEY`, `DATABASE_URL`, `NEXTAUTH_SECRET` en el repo.
-
----
-
-## ⏭️ Próximos Pasos
-
-1. [ ] Configurar GitHub secrets (requerido para CI)
-2. [ ] Crear branch `develop` para primer deploy staging
-3. [ ] Configurar cluster k8s staging
-4. [ ] Configurar PostgreSQL production (Neon/Supabase/VPS)
-5. [ ] Implementar payment gateway (Conekta/OpenPay recomendado)
-6. [ ] Phase 2: Gift cards, realtime chat, reviews, admin panel
+- [README.md](../README.md) — Quick start, stack, config
+- [REPORTE_COMPLETO.md](https://github.com/vikoopenclawlab/velvet-mx/blob/main/REPORTE_COMPLETO.md) — Research inicial
+- [MEMORY.md](https://github.com/vikoopenclawlab/velvet-mx/blob/main/../../../.openclaw/workspace/MEMORY.md) — Contexto largo plazo
